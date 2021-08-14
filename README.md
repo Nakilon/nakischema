@@ -1,13 +1,13 @@
 # Why?
 
-I often process complex and undocumented data such as game assets or web responses. Previously I used to add asserts everywhere in code that uses the data but now I think it's much better to split the job into two steps and preprocess the whole data, i.e. validate it, because:
+I often process complex and undocumented data such as game assets or web responses. Previously I used to add asserts everywhere in code that uses the data but now I think the much better practice is to split the job into two steps and preprocess the whole data, i.e. validate it, before starting the actual work with it, because:
 
 1. Having asserts in random places may cause running them more than once for no purpose.
 2. Having asserts at all is just slowing your program.
 3. It is much simplier to figure things out after you've processed all the data. Valid schema is a valid documentation.
 
-The whole API is just one method.
-The whole schema is just one nested Hash object.
+The whole Nakischema API is just one method.  
+The whole schema is just one Ruby object.  
 Say no to needless DSLs.
 
 Also exceptions are informative -- they tell you where and how things went wrong.
@@ -23,7 +23,111 @@ schema = { ... }
 Nakischema.validate data, schema
 ```
 
+Schema can be as simple as just one String to match:
 
+```ruby
+Nakischema.validate "John", "Joe"
+```
+```none
+expected "Joe" != "John" (Nakischema::Error)
+```
+
+And schema can be nested to validate nested objects.  
+Array and Hash objects have to be validated by Hash object schema with special keys:
+* `:each` for validating every Array item with nested schema object
+* `:hash` for validating every value via exact Hash keys match
+
+```ruby
+Nakischema.validate( [
+  {name: "John", age: 20},
+  {name: "Bill", age: 15},
+], {
+  each: {
+    hash: {
+      name: /\A[A-Z][a-z]+\z/,
+      age: 18..100,
+    },
+  },
+} )
+```
+```none
+expected 18..100 != 15 (at [:"#1", :age]) (Nakischema::Error)
+```
+
+* `:size` to specify allowed Array size range
+* `:hash_req` to specify required Hash items
+* `:hash_opt` to specify optional Hash items
+
+Your schema object can be recursive to validate objects that are recursive or just look like that:
+
+```ruby
+human = {}
+human.replace( {
+  hash_req: {name: /\A[A-Z][a-z]+\z/, age: 0..100},
+  hash_opt: {parents: {size: 2..2, each: human}},
+} )
+
+father = {name: "John", age: 40}
+mother = {name: "Anna", age: 40}
+Nakischema.validate( [
+  father,
+  mother,
+  {name: "Bill", age: 18, parents: [father, mother]},
+],
+  {each: human}
+)
+```
+
+The `[[ ]]` syntax validates an Array in order (it also can be nested).
+
+```ruby
+pets = [
+  ["cat", "Thomas"],
+]
+Nakischema.validate( pets, {
+  each: [[/\A[a-z]+\z/, /\A[A-Z]/]]
+} )
+```
+
+The "or-group" `[ ]` tries to match the object with any of a given list of schemas.
+* `:assertions` allows passing a list of lambdas to do arbitrary checks and return booleans. 
+
+```ruby
+humans = [
+  {name: "John", gender: :male},
+  {name: "Anna", gender: :female, pets: %w{ Thomas }},
+  {name: "Bill", gender: :attack_helicopter},
+]
+Nakischema.validate( humans, {
+  each: {
+    hash_opt: {
+      pets: {
+        each: {
+          assertions: [
+            -> pet_id, _ { pets.map(&:last).include? pet_id },
+          ],
+        }
+      },
+    },
+    hash_req: {
+      name: /\A[A-Z]/,
+      gender: [:male, :female],
+    },
+  },
+} )
+```
+```none
+expected at least one of 2 rules to match the :attack_helicopter, errors: (Nakischema::Error)
+  expected :male != :attack_helicopter (at [:"#2", :gender, "variant#0"])
+  expected :female != :attack_helicopter (at [:"#2", :gender, "variant#1"]) (at [:"#2", :gender])
+```
+
+Here you can see that nested schema validation errors produce nested exception messages with indentation so you can easily see the whole validation object tree path that was made.
+
+And if Anna had a pet with unfamiliar name that custom assertion would throw:
+```none
+custom assertion failed (at [:"#1", :pets, :"#0"]) (Nakischema::Error)
+```
 
 # Why such stupid name?
 
@@ -41,8 +145,6 @@ validates_schema (1.1.3)
 $ gem search schema | wc -l
 288
 ```
-
-Also nowadays there is a trend anyway to add the same brand prefix to your gem names, such as `dry-*` even if gems are not related and if the prefix means nothing, i.e. they aren't DRY. Just a SEO marketing practice. Blame yourself for starting it ..P
 
 # TODO
 

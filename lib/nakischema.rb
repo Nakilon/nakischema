@@ -2,11 +2,11 @@ module Nakischema
   Error = Class.new RuntimeError
   def self.validate object, schema, path = []
     raise_with_path = lambda do |msg|
-      raise Error.new "#{msg}#{" (at #{path})" unless path.empty?}"
+      raise Error.new "#{msg}#{" (at #{path})" unless path.empty?}"   # TODO: maybe move '(at ...)' to the beginning
     end
     case schema
     when Hash
-      raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash unless (schema.keys & %i{ keys_sorted keys values }).empty?
+      raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash unless (schema.keys & %i{ keys each_key each_value }).empty?
       raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array unless (schema.keys & %i{ size }).empty?
       schema.each do |k, v|
         case k
@@ -16,10 +16,10 @@ module Nakischema
         #   raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
         #   validate object[k], v, [*path, "##{k}"]
         when :keys ; validate object.keys, v, [*path, :keys]
-        when :hash_opt ; v.each{ |k, v| validate object[k], v, [*path, k] if object.key? k }
-        when :hash
-          raise_with_path.call "expected implicit keys #{v} != #{object.keys.sort}" unless v.keys.sort == object.keys.sort
-          v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
+        when :hash_opt ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] if object.key? k }
+        when :hash_req ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
+        when :hash     ; raise_with_path.call "expected implicit keys #{v.keys} != #{object.keys.sort}" unless v.keys.sort == object.keys.sort
+                         v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
         when :each_key ; object.keys.each_with_index{ |k, i| validate k, v, [*path, :"key##{i}"] }
         when :each_value ; object.values.each_with_index{ |v_, i| validate v_, v, [*path, :"value##{i}"] }
         when :each
@@ -40,9 +40,9 @@ module Nakischema
         else ; raise_with_path.call "unsupported rule #{k.inspect}"
         end
       end
-    when NilClass, TrueClass, FalseClass, String ; raise_with_path.call "expected #{schema.inspect} != #{object.inspect}" unless schema == object
-    when Regexp                                  ; raise_with_path.call "expected #{schema        } != #{object.inspect}" unless schema === object
-    when Range                                   ; raise_with_path.call "expected #{schema        } != #{object        }" unless schema.include? object
+    when NilClass, TrueClass, FalseClass, String, Symbol ; raise_with_path.call "expected #{schema.inspect} != #{object.inspect}" unless schema == object
+    when Regexp                                          ; raise_with_path.call "expected #{schema        } != #{object.inspect}" unless schema === object
+    when Range                                           ; raise_with_path.call "expected #{schema        } != #{object        }" unless schema.include? object
     when Array
       if schema.map(&:class) == [Array]
         raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
