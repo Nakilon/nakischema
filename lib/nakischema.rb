@@ -1,9 +1,10 @@
 module Nakischema
   Error = Class.new RuntimeError
   def self.validate object, schema, path = []
-    raise_with_path = lambda do |msg|
-      raise Error.new "#{msg}#{" (at #{path})" unless path.empty?}"   # TODO: maybe move '(at ...)' to the beginning
+    raise_with_path = lambda do |msg, _path = path|
+      raise Error.new "#{msg}#{" (at #{_path})" unless _path.empty?}"
     end
+    # TODO: maybe move '(at ...)' to the beginning
     case schema
     when Hash
       raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash unless (schema.keys & %i{ keys each_key each_value }).empty?
@@ -14,7 +15,7 @@ module Nakischema
         when :size ; raise_with_path.call "expected explicit size #{v} != #{object.size}" unless v.include? object.size
         # when Fixnum
         #   raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
-        #   validate object[k], v, [*path, "##{k}"]
+        #   validate object[k], v, [*path, :"##{k}"]
         when :keys ; validate object.keys, v, [*path, :keys]
         when :hash_opt ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] if object.key? k }
         when :hash_req ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
@@ -36,8 +37,16 @@ module Nakischema
         #     validate object, v, [*path, :"case##{i}"]
         #     true
         #   end.none?
-        when :assertions ; v.each_with_index{ |assertion, i| raise_with_path.call "custom assertion failed" unless assertion.call object, [*path, :"assertion##{i}"] }
-        else ; raise_with_path.call "unsupported rule #{k.inspect}"
+        when :assertions
+          v.each_with_index do |assertion, i|
+            begin
+              raise Error.new "custom assertion failed" unless assertion.call object, [*path, :"assertion##{i}"]
+            rescue Error => e
+              raise_with_path.call e, [*path, :"assertion##{i}"]
+            end
+          end
+        else
+          raise_with_path.call "unsupported rule #{k.inspect}"
         end
       end
     when NilClass, TrueClass, FalseClass, String, Symbol ; raise_with_path.call "expected #{schema.inspect} != #{object.inspect}" unless schema == object
@@ -47,24 +56,22 @@ module Nakischema
       if schema.map(&:class) == [Array]
         raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
         raise_with_path.call "expected implicit size #{schema[0].size} != #{object.size}" unless schema[0].size == object.size
-        object.zip(schema[0]).each_with_index do |(o, v), i|
-          validate o, v, [*path, :"##{i}"]
-        end
+        object.zip(schema[0]).each_with_index{ |(o, v), i| validate o, v, [*path, :"##{i}"] }
       else
         results = schema.lazy.with_index.map do |v, i|
           # raise_with_path.call "unsupported nested Array" if v.is_a? Array
           begin
-            validate object, v, [*path, "variant##{i}"]
+            validate object, v, [*path, :"variant##{i}"]
             nil
           rescue Error => e
             e
           end
         end
-        raise_with_path.call \
-          "expected at least one of #{schema.size} rules to match the #{object.inspect}, errors:\n" +
+        raise Error.new "expected at least one of #{schema.size} rules to match the #{object.inspect}, errors:\n" +
           results.force.compact.map{ |_| _.to_s.gsub(/^/, "  ") }.join("\n") if results.all?
       end
-    else ; raise_with_path.call "unsupported rule class #{schema.class}"
+    else
+      raise_with_path.call "unsupported rule class #{schema.class}"
     end
   end
 end

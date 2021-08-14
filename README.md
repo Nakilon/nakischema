@@ -1,6 +1,8 @@
-# Why?
+# Nakischema
 
-I often process complex and undocumented data such as game assets or web responses. Previously I used to add asserts everywhere in code that uses the data but now I think the much better practice is to split the job into two steps and preprocess the whole data, i.e. validate it, before starting the actual work with it, because:
+## Why?
+
+I often process complex and undocumented data such as game assets or web responses. Previously I used to add asserts everywhere to check things on fly but now I think the much better practice is to split the job into two steps and preprocess the whole data, i.e. validate it, before starting the actual work with it, because:
 
 1. Having asserts in random places may cause running them more than once for no purpose.
 2. Having asserts at all is just slowing your program.
@@ -12,16 +14,18 @@ Say no to needless DSLs.
 
 Also exceptions are informative -- they tell you where and how things went wrong.
 
-# How?
+## How?
+
+### Install
 
 ```bash
 gem install nakischema
 ```
 ```ruby
 require "nakischema"
-schema = { ... }
-Nakischema.validate data, schema
 ```
+
+### Usage examples
 
 Schema can be as simple as just one String to match:
 
@@ -61,10 +65,10 @@ expected 18..100 != 15 (at [:"#1", :age]) (Nakischema::Error)
 Your schema object can be recursive to validate objects that are recursive or just look like that:
 
 ```ruby
-human = {}
-human.replace( {
+human_schema = {}
+human_schema.replace( {
   hash_req: {name: /\A[A-Z][a-z]+\z/, age: 0..100},
-  hash_opt: {parents: {size: 2..2, each: human}},
+  hash_opt: {parents: {size: 2..2, each: human_schema}},
 } )
 
 father = {name: "John", age: 40}
@@ -74,7 +78,7 @@ Nakischema.validate( [
   mother,
   {name: "Bill", age: 18, parents: [father, mother]},
 ],
-  {each: human}
+  {each: human_schema}
 )
 ```
 
@@ -89,7 +93,7 @@ Nakischema.validate( pets, {
 } )
 ```
 
-The "or-group" `[ ]` tries to match the object with any of a given list of schemas.
+The "or-group" `[ ]` tries to match the object with any of a given list of "rules" (schemas).
 * `:assertions` allows passing a list of lambdas to do arbitrary checks and return booleans. 
 
 ```ruby
@@ -118,8 +122,8 @@ Nakischema.validate( humans, {
 ```
 ```none
 expected at least one of 2 rules to match the :attack_helicopter, errors: (Nakischema::Error)
-  expected :male != :attack_helicopter (at [:"#2", :gender, "variant#0"])
-  expected :female != :attack_helicopter (at [:"#2", :gender, "variant#1"]) (at [:"#2", :gender])
+  expected :male != :attack_helicopter (at [:"#2", :gender, :"variant#0"])
+  expected :female != :attack_helicopter (at [:"#2", :gender, :"variant#1"])
 ```
 
 Here you can see that nested schema validation errors produce nested exception messages with indentation so you can easily see the whole validation object tree path that was made.
@@ -131,7 +135,46 @@ custom assertion failed (at [:"#1", :pets, :"#0"]) (Nakischema::Error)
 
 There are a few other special keys. You'll find them in source code easily.
 
-# Why such stupid name?
+### Custom mismatch message
+
+Imagine you don't want a number higher than 5 (unless it's 10):
+
+```ruby
+Nakischema.validate [1, 10, 7], {
+  each: [
+    { assertions: [-> x, _ {
+      x <= 5
+    } ] },
+    10..10,
+  ],
+}
+```
+```none
+expected at least one of 2 rules to match the 7, errors: (Nakischema::Error)
+  custom assertion failed (at [:"#2", :"variant#0", :"assertion#0"])
+  expected 10..10 != 7 (at [:"#2", :"variant#1"])
+```
+
+To replace the generic "custom assertion failed" message with something more useful you can raise the `Nakischema::Error` manually (don't forget to return `true` otherwise):
+
+```ruby
+Nakischema.validate [1, 10, 7], {
+  each: [
+    { assertions: [-> x, _ {
+      raise Nakischema::Error.new "#{x} is too much" unless x <= 5
+      true
+    } ] },
+    10..10,
+  ],
+}
+```
+```none
+expected at least one of 2 rules to match the 7, errors: (Nakischema::Error)
+  7 is too much (at [:"#2", :"variant#0", :"assertion#0"])
+  expected 10..10 != 7 (at [:"#2", :"variant#1"])
+```
+
+## Why such stupid name?
 
 Initially I wanted to call it something like "SchemaValidator" but:
 
@@ -148,7 +191,7 @@ $ gem search schema | wc -l
 288
 ```
 
-# TODO
+## TODO
 
 * add some real application examples
-* make some tests
+* make some tests and Github Action for them
