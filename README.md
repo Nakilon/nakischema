@@ -129,6 +129,8 @@ And if Anna had a pet with unfamiliar name that custom assertion would throw:
 custom assertion failed (at [:"#1", :pets, :"#0"]) (Nakischema::Error)
 ```
 
+There are a few other special keys. You'll find them in source code easily.
+
 # Why such stupid name?
 
 Initially I wanted to call it something like "SchemaValidator" but:
@@ -148,4 +150,5 @@ $ gem search schema | wc -l
 
 # TODO
 
+* add some real application examples
 * make some tests
