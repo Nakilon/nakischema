@@ -2,11 +2,11 @@
 
 ## Why?
 
-I often process complex and undocumented data such as game assets or web responses. Previously I used to add asserts everywhere to check things on fly but now I think the much better practice is to split the job into two steps and preprocess the whole data, i.e. validate it, before starting the actual work with it, because:
+I often process complex and undocumented data such as game assets or web responses. Previously I used to add asserts everywhere to check things on the fly but now I think the much better practice is to split the job into two steps and preprocess the whole data, i.e. validate it, before starting the actual work with it, because:
 
 1. Having asserts in random places may cause running them more than once for no purpose.
 2. Having asserts at all is just slowing your program.
-3. It is much simplier to figure things out after you've processed all the data. Valid schema is a valid documentation.
+3. It is much simpler to figure things out after you've processed all the data. Valid schema is a valid documentation.
 
 The whole Nakischema API is just one method.  
 The whole schema is just one Ruby object.  
