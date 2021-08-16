@@ -194,4 +194,5 @@ $ gem search schema | wc -l
 ## TODO
 
 * add some real application examples
-* make some tests and Github Action for them
+* make some tests and GitHub Action for them
+* consider replacing `.is_a?` with `.respond_to?`

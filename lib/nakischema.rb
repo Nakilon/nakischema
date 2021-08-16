@@ -11,15 +11,17 @@ module Nakischema
       raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array unless (schema.keys & %i{ size }).empty?
       schema.each do |k, v|
         case k
-        # when :keys_sorted ; raise_with_path.call "expected explicit keys #{v} != #{object.keys.sort}" unless v == object.keys.sort
         when :size ; raise_with_path.call "expected explicit size #{v} != #{object.size}" unless v.include? object.size
         # when Fixnum
         #   raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
         #   validate object[k], v, [*path, :"##{k}"]
         when :keys ; validate object.keys, v, [*path, :keys]
+        when :values ; validate object.values, v, [*path, :values]
+        when :keys_sorted ; validate object.keys.sort, v, [*path, :keys_sorted]
         when :hash_opt ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] if object.key? k }
         when :hash_req ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
-        when :hash     ; raise_with_path.call "expected implicit keys #{v.keys} != #{object.keys.sort}" unless v.keys.sort == object.keys.sort
+        when :hash     ; raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash
+                         raise_with_path.call "expected implicit keys #{v.keys} != #{object.keys.sort}" unless v.keys.sort == object.keys.sort
                          v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
         when :each_key ; object.keys.each_with_index{ |k, i| validate k, v, [*path, :"key##{i}"] }
         when :each_value ; object.values.each_with_index{ |v_, i| validate v_, v, [*path, :"value##{i}"] }
@@ -55,7 +57,7 @@ module Nakischema
     when Array
       if schema.map(&:class) == [Array]
         raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
-        raise_with_path.call "expected implicit size #{schema[0].size} != #{object.size}" unless schema[0].size == object.size
+        raise_with_path.call "expected implicit size #{schema[0].size} != #{object.size} for #{object.inspect}" unless schema[0].size == object.size
         object.zip(schema[0]).each_with_index{ |(o, v), i| validate o, v, [*path, :"##{i}"] }
       else
         results = schema.lazy.with_index.map do |v, i|
