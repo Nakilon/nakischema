@@ -6,6 +6,11 @@ module Nakischema
     end
     # TODO: maybe move '(at ...)' to the beginning
     case schema
+    when NilClass, TrueClass, FalseClass, String, Symbol ; raise_with_path.call "expected #{schema.inspect} != #{object.inspect}" unless schema == object
+    # TODO: maybe deprecate the NilClass, TrueClass, FalseClass since they can be asserted via the next case branch
+    when Class                                           ; raise_with_path.call "expected #{schema        } != #{object.class  }" unless schema === object
+    when Regexp                                          ; raise_with_path.call "expected #{schema        } != #{object.inspect}" unless schema === object
+    when Range                                           ; raise_with_path.call "expected #{schema        } != #{object        }" unless schema.include? object
     when Hash
       raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash unless (schema.keys & %i{ keys each_key each_value }).empty?
       raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array unless (schema.keys & %i{ size }).empty?
@@ -51,9 +56,6 @@ module Nakischema
           raise_with_path.call "unsupported rule #{k.inspect}"
         end
       end
-    when NilClass, TrueClass, FalseClass, String, Symbol ; raise_with_path.call "expected #{schema.inspect} != #{object.inspect}" unless schema == object
-    when Regexp                                          ; raise_with_path.call "expected #{schema        } != #{object.inspect}" unless schema === object
-    when Range                                           ; raise_with_path.call "expected #{schema        } != #{object        }" unless schema.include? object
     when Array
       if schema.map(&:class) == [Array]
         raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array

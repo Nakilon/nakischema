@@ -27,13 +27,12 @@ require "nakischema"
 
 ### Usage examples
 
-Schema can be as simple as just one String to match:
+Schema can be as simple as just checking basic scalar objects for equality or class:
 
 ```ruby
-Nakischema.validate "John", "Joe"
-```
-```none
-expected "Joe" != "John" (Nakischema::Error)
+Nakischema.validate "John", String  # => nil
+Nakischema.validate "John", "Joe"   # Nakischema::Error: expected "Joe" != "John"
+Nakischema.validate "John", Numeric # Nakischema::Error: expected Numeric != String
 ```
 
 And schema can be nested to validate nested objects.  
@@ -135,6 +134,59 @@ custom assertion failed (at [:"#1", :pets, :"#0"]) (Nakischema::Error)
 
 There are a few other special keys. You'll find them in source code easily.
 
+### Real life non-json example of using with gem minitest
+
+Imagine you want to validate the args that were passed to `Monitoring.log` when calling the `log_ruby_processes`. First you write such test to see the actual args passed:
+
+```ruby
+it :log_ruby_processes do
+  mock = MiniTest::Mock.new.expect :call, nil do |*args|
+
+    require "pp"
+    pp args
+
+  end
+  Monitoring.stub :log, mock do
+
+    log_ruby_processes
+
+  end
+  mock.verify
+end
+```
+
+```none
+$ ruby test.rb
+...
+[2021-09-06 00:59:58 UTC,
+ nil,
+ {:total=>3,
+  :each=>
+   [["/Users/nakilon/.../ruby test.rb", 35.53125, 43],
+    ["/Users/nakilon/.../ruby take.rb", 3.20703125, 41],
+    ["/Users/nakilon/.../bin/paster", 1.89453125, 14]]}]
+...
+```
+
+Now just replace the `require "pp"; pp args` with something like this:
+
+```ruby
+    Nakischema.validate args, [[
+      Time,
+      NilClass,
+      {
+        hash: {
+          total: 3..3,
+          each: {
+            size: 3..3,
+            each: [[/\A\/Users\//, Float, Fixnum]],
+          },
+        },
+        assertions: [-> h,_ { h[:total] == h[:each].size }],
+      },
+    ]]
+```
+
 ### Custom mismatch message
 
 Imagine you don't want a number higher than 5 (unless it's 10):
@@ -196,3 +248,4 @@ $ gem search schema | wc -l
 * add some real application examples
 * make some tests and GitHub Action for them
 * consider replacing `.is_a?` with `.respond_to?`
+* ability to assert at the same time the range and class (like is it's float or integer)
