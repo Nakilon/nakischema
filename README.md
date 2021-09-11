@@ -136,7 +136,7 @@ There are a few other special keys. You'll find them in source code easily.
 
 ### Validate Oga objects
 
-[`gem oga`](https://rubygems.org/gems/oga) is a Nokogiri analogue that I recommend you to try because it's written in pure Ruby. `Nakischema.validate_oga_xml` is a method more or less similar to `validate`. Here is basic [Wolfram Alpha API](https://products.wolframalpha.com/api/) response validation as an example:
+[`gem oga`](https://rubygems.org/gems/oga) is a Nokogiri analogue that I recommend you to try out because it's written in pure Ruby. `Nakischema.validate_oga_xml` is a method more or less similar to `validate`. See basic [Wolfram Alpha API](https://products.wolframalpha.com/api/) response validation as an example:
 
 ```ruby
 xml = Oga.parse_xml open link, &:read
@@ -279,7 +279,6 @@ $ gem search schema | wc -l
 
 ## TODO
 
-* add some real application examples
 * make some tests and GitHub Action for them
 * consider replacing `.is_a?` with `.respond_to?`
 * ability to assert at the same time the range and class (like is it's float or integer)
