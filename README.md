@@ -25,7 +25,7 @@ gem install nakischema
 require "nakischema"
 ```
 
-### Usage examples
+### Validate Ruby objects
 
 Schema can be as simple as just checking basic scalar objects for equality or class:
 
@@ -134,7 +134,41 @@ custom assertion failed (at [:"#1", :pets, :"#0"]) (Nakischema::Error)
 
 There are a few other special keys. You'll find them in source code easily.
 
-### Real life non-json example of using with gem minitest
+### Validate Oga objects
+
+[`gem oga`](https://rubygems.org/gems/oga) is a Nokogiri analogue that I recommend you to try because it's written in pure Ruby. `Nakischema.validate_oga_xml` is a method more or less similar to `validate`. Here is basic [Wolfram Alpha API](https://products.wolframalpha.com/api/) response validation as an example:
+
+```ruby
+xml = Oga.parse_xml open link, &:read
+Nakischema.validate_oga_xml xml, {
+  exact: {
+    "queryresult" => [[ {
+      attr_req: {"success": "true", "error": "false", "inputstring": query},
+      assertions: [
+        ->n,_{ n.at_xpath("./pod")["id"] == "Input" },
+        ->n,_{ n.xpath("/pod").each{ |_| _["id"] == _["title"].delete(" ") } },
+      ],
+      exact: {"pod" => {size: 8..8}, "assumptions" => [[{}]]},
+      req: {
+        "/*[@error='true']" => [[]],
+        "/pod" => {each: {attr_req: {"id": /\A([A-Z][a-z]+)+(:([A-Z][a-z]+)+)?\z/, "scanner": /\A([A-Z][a-z]+)+\z/}}},
+        "./pod[@title='Input']" => [[{req: {"subpod" => [[{exact: {"plaintext" => [[{text: query}]]}}]]}}]],
+        "./pod[@primary='true']" => [[{req: {"subpod" => [[{exact: {"plaintext" => [[{}]]}}]]}}]],
+        "/pod[@scanner='Numeric']" => {each: {req: {"subpod" => [[{exact: {"plaintext" => [[{}]]}}]]}}},
+      },
+    } ]],
+  },
+}
+```
+
+* `exact` -- similar to `hash` when using `validate`  
+* `req` -- required children nodes  
+* `attr_req` -- required attributes  
+* `text` -- ...text
+
+`exact` and `req` accept either node name or XPath. Each results in an array of nodes of any length, even empty -- this is why you see so many `[[]]`. Also note that results of these selectors can overlap so you are able to apply multiple schemas to the same node.
+
+### Another real life example -- validating non-json object while using `gem minitest`
 
 Imagine you want to validate the args that were passed to `Monitoring.log` when calling the `log_ruby_processes`. First you write such test to see the actual args passed:
 

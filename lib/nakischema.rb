@@ -1,5 +1,6 @@
 module Nakischema
   Error = Class.new RuntimeError
+
   def self.validate object, schema, path = []
     raise_with_path = lambda do |msg, _path = path|
       raise Error.new "#{msg}#{" (at #{_path})" unless _path.empty?}"
@@ -66,6 +67,60 @@ module Nakischema
           # raise_with_path.call "unsupported nested Array" if v.is_a? Array
           begin
             validate object, v, [*path, :"variant##{i}"]
+            nil
+          rescue Error => e
+            e
+          end
+        end
+        raise Error.new "expected at least one of #{schema.size} rules to match the #{object.inspect}, errors:\n" +
+          results.force.compact.map{ |_| _.to_s.gsub(/^/, "  ") }.join("\n") if results.all?
+      end
+    else
+      raise_with_path.call "unsupported rule class #{schema.class}"
+    end
+  end
+
+  def self.validate_oga_xml object, schema, path = []
+    raise_with_path = lambda do |msg, _path = path|
+      raise Error.new "#{msg}#{" (at #{_path})" unless _path.empty?}"
+    end
+    case schema
+    when Hash
+      schema.each do |k, v|
+        case k
+        when :size ; raise_with_path.call "expected explicit size #{v} != #{object.size}" unless v.include? object.size
+        when :text ; raise_with_path.call "expected text #{v.inspect} != #{object.text.inspect}" unless v == object.text
+        when :each ; raise_with_path.call "expected iterable != #{object.class}" unless object.respond_to? :each_with_index
+                     object.each_with_index{ |e, i| validate_oga_xml e, v, [*path, :"##{i}"] }
+        when :exact ; children = object.xpath "./*"
+                      names = children.map(&:name).uniq
+                      raise_with_path.call "expected implicit children #{v.keys} != #{names}" unless v.keys == names
+                      v.each do |k, v|
+                        selected = children.select{ |_| _.name == k }
+                        validate_oga_xml selected, v, [*path, k]
+                      end
+        when :req      ; v.each{ |k, v| validate_oga_xml object.xpath(k.start_with?("./") ? k : "./#{k}"), v, [*path, k] }
+        when :attr_req ; v.each{ |k, v| raise_with_path.call "expected #{v} != #{object[k]}", [*path, k] unless v === object[k] }
+        when :assertions
+          v.each_with_index do |assertion, i|
+            begin
+              raise Error.new "custom assertion failed" unless assertion.call object, [*path, :"assertion##{i}"]
+            rescue Error => e
+              raise_with_path.call e, [*path, :"assertion##{i}"]
+            end
+          end
+        else
+          raise_with_path.call "unsupported rule #{k.inspect}"
+        end
+      end
+    when Array
+      if schema.map(&:class) == [Array]
+        raise_with_path.call "expected implicit size #{schema[0].size} != #{object.size} for #{object.inspect}" unless schema[0].size == object.size
+        object.zip(schema[0]).each_with_index{ |(o, v), i| validate_oga_xml o, v, [*path, :"##{i}"] }
+      else
+        results = schema.lazy.with_index.map do |v, i|
+          begin
+            validate_oga_xml object, v, [*path, :"variant##{i}"]
             nil
           rescue Error => e
             e
