@@ -99,7 +99,7 @@ module Nakischema
                         selected = children.select{ |_| _.name == k }
                         validate_oga_xml selected, v, [*path, k]
                       end
-        when :req      ; v.each{ |k, v| validate_oga_xml object.xpath(k.start_with?("./") ? k : "./#{k}"), v, [*path, k] }
+        when :children ; v.each{ |k, v| validate_oga_xml object.xpath(k.start_with?("./") ? k : "./#{k}"), v, [*path, k] }
         when :attr_req ; v.each{ |k, v| raise_with_path.call "expected #{v} != #{object[k]}", [*path, k] unless v === object[k] }
         when :assertions
           v.each_with_index do |assertion, i|

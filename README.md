@@ -149,12 +149,12 @@ Nakischema.validate_oga_xml xml, {
         ->n,_{ n.xpath("/pod").each{ |_| _["id"] == _["title"].delete(" ") } },
       ],
       exact: {"pod" => {size: 8..8}, "assumptions" => [[{}]]},
-      req: {
+      children: {
         "/*[@error='true']" => [[]],
         "/pod" => {each: {attr_req: {"id": /\A([A-Z][a-z]+)+(:([A-Z][a-z]+)+)?\z/, "scanner": /\A([A-Z][a-z]+)+\z/}}},
-        "./pod[@title='Input']" => [[{req: {"subpod" => [[{exact: {"plaintext" => [[{text: query}]]}}]]}}]],
-        "./pod[@primary='true']" => [[{req: {"subpod" => [[{exact: {"plaintext" => [[{}]]}}]]}}]],
-        "/pod[@scanner='Numeric']" => {each: {req: {"subpod" => [[{exact: {"plaintext" => [[{}]]}}]]}}},
+        "./pod[@title='Input']" => [[{children: {"subpod" => [[{exact: {"plaintext" => [[{text: query}]]}}]]}}]],
+        "./pod[@primary='true']" => [[{children: {"subpod" => [[{exact: {"plaintext" => [[{}]]}}]]}}]],
+        "/pod[@scanner='Numeric']" => {each: {children: {"subpod" => [[{exact: {"plaintext" => [[{}]]}}]]}}},
       },
     } ]],
   },
@@ -162,8 +162,8 @@ Nakischema.validate_oga_xml xml, {
 ```
 
 * `exact` -- similar to `hash` when using `validate`  
-* `req` -- required children nodes  
 * `attr_req` -- required attributes  
+* `children` -- children nodes  
 * `text` -- ...text
 
 `exact` and `req` accept either node name or XPath. Each results in an array of nodes of any length, even empty -- this is why you see so many `[[]]`. Also note that results of these selectors can overlap so you are able to apply multiple schemas to the same node.
