@@ -85,6 +85,7 @@ module Nakischema
       raise Error.new "#{msg}#{" (at #{_path})" unless _path.empty?}"
     end
     case schema
+    when String, Regexp ; raise_with_path.call "expected #{schema.inspect} != #{object.inspect}" unless schema === object
     when Hash
       schema.each do |k, v|
         case k
@@ -100,7 +101,7 @@ module Nakischema
                         validate_oga_xml selected, v, [*path, k]
                       end
         when :children ; v.each{ |k, v| validate_oga_xml object.xpath(k.start_with?("./") ? k : "./#{k}"), v, [*path, k] }
-        when :attr_req ; v.each{ |k, v| raise_with_path.call "expected #{v} != #{object[k]}", [*path, k] unless v === object[k] }
+        when :attr_req ; v.each{ |k, v| validate_oga_xml object[k], v, [*path, k] }
         when :assertions
           v.each_with_index do |assertion, i|
             begin
