@@ -96,12 +96,12 @@ module Nakischema
         when :exact ; children = object.xpath "./*"
                       names = children.map(&:name).uniq
                       raise_with_path.call "expected implicit children #{v.keys} != #{names}" unless v.keys == names
-                      v.each do |k, v|
-                        selected = children.select{ |_| _.name == k }
-                        validate_oga_xml selected, v, [*path, k]
-                      end
-        when :children ; v.each{ |k, v| validate_oga_xml object.xpath(k.start_with?("./") ? k : "./#{k}"), v, [*path, k] }
-        when :attr_req ; v.each{ |k, v| validate_oga_xml object[k], v, [*path, k] }
+                      v.each{ |k, v| validate_oga_xml children.select{ |_| _.name == k }, v, [*path, k] }
+        when :children   ; v.each{ |k, v| validate_oga_xml object.xpath(k.start_with?("./") ? k : "./#{k}"), v, [*path, k] }
+        when :attr_exact ; names = object.attributes.map &:name
+                           raise_with_path.call "expected implicit attributes #{v.keys} != #{names}" unless v.keys == names
+                           v.each{ |k, v| validate_oga_xml object[k], v, [*path, k] }
+        when :attr_req   ; v.each{ |k, v| validate_oga_xml object[k], v, [*path, k] }
         when :assertions
           v.each_with_index do |assertion, i|
             begin
