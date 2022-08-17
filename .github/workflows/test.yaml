@@ -6,4 +6,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - run: bundle install && bundle exec ruby test.rb
+    - run: gem install bundler && bundle install && bundle exec ruby test.rb
