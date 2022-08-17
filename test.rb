@@ -2,6 +2,7 @@ require "minitest/autorun"
 
 require_relative "lib/nakischema"
 describe Nakischema do
+
   it do
     c = Class.new
     Nakischema.validate [
@@ -9,6 +10,7 @@ describe Nakischema do
       c.new, "", 1,
       [], {},
       {4=>3, 2=>1},
+      Struct.new(:a).new(:b),
     ], [[
       nil, true, false, :symbol, "string",
       c, /\A\z/, [nil, 1..1],
@@ -20,6 +22,7 @@ describe Nakischema do
         each: [[2..4, 1..3]],
         hash: {4=>3..3, 2=>1..1},
       },
+      {method: {a: :b}},
     ]]
   end
 end

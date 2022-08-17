@@ -31,6 +31,7 @@ module Nakischema
                          v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
         when :each_key ; object.keys.each_with_index{ |k, i| validate k, v, [*path, :"key##{i}"] }
         when :each_value ; object.values.each_with_index{ |v_, i| validate v_, v, [*path, :"value##{i}"] }
+        when :method ; v.each{ |m, e| validate object.public_method(m).call, e, [*path, :"method##{m}"] }
         when :each
           raise_with_path.call "expected iterable != #{object.class}" unless object.respond_to? :each_with_index
           object.each_with_index{ |e, i| validate e, v, [*path, :"##{i}"] }
