@@ -6,4 +6,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - run: gem install bundler && bundle install && bundle exec ruby test.rb
+    - run: docker run -v $(pwd):/checkout ruby:alpine sh -c "cd checkout && gem install bundler && bundle install && bundle exec ruby test.rb"
