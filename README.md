@@ -132,6 +132,8 @@ And if Anna had a pet with unfamiliar name that custom assertion would throw:
 custom assertion failed (at [:"#1", :pets, :"#0"]) (Nakischema::Error)
 ```
 
+Known issue and workaround: the `[[[]]]` is being interpereted as `[[ [] ]]`, not `[ [[]] ]`, but you can force it by doing: `[:something, [[]]]`.
+
 There are a few other special keys. You'll find them in source code easily.
 
 ### Validate Oga objects

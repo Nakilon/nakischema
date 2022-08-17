@@ -14,7 +14,7 @@ module Nakischema
     when Range                                           ; raise_with_path.call "expected #{schema        } != #{object        }" unless schema.include? object
     when Hash
       raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash unless (schema.keys & %i{ keys each_key each_value }).empty?
-      raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array unless (schema.keys & %i{ size }).empty?
+      raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array unless (schema.keys & %i{ size }).empty?   # TODO: maybe allow Hash object?
       schema.each do |k, v|
         case k
         when :size ; raise_with_path.call "expected explicit size #{v} != #{object.size}" unless v.include? object.size
@@ -23,7 +23,7 @@ module Nakischema
         #   validate object[k], v, [*path, :"##{k}"]
         when :keys ; validate object.keys, v, [*path, :keys]
         when :values ; validate object.values, v, [*path, :values]
-        when :keys_sorted ; validate object.keys.sort, v, [*path, :keys_sorted]
+        when :keys_sorted ; validate object.keys.sort, v, [*path, :keys_sorted]   # TODO: maybe copypaste the Array validation to reduce [] nesting
         when :hash_opt ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] if object.key? k }
         when :hash_req ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
         when :hash     ; raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash
