@@ -1,9 +1,9 @@
 module Nakischema
   Error = Class.new RuntimeError
 
-  def self.validate object, schema, path = []
+  def self.validate object, schema, message = nil, path: []
     raise_with_path = lambda do |msg, _path = path|
-      raise Error.new "#{msg}#{" (at #{_path})" unless _path.empty?}"
+      raise Error.new "#{msg}#{" (at #{_path})" unless _path.empty?}#{" #{message}" if message}"
     end
     # TODO: maybe move '(at ...)' to the beginning
     case schema
@@ -20,21 +20,22 @@ module Nakischema
         when :size ; raise_with_path.call "expected explicit size #{v} != #{object.size}" unless v.include? object.size
         # when Fixnum
         #   raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
-        #   validate object[k], v, [*path, :"##{k}"]
-        when :keys ; validate object.keys, v, [*path, :keys]
-        when :values ; validate object.values, v, [*path, :values]
-        when :keys_sorted ; validate object.keys.sort, v, [*path, :keys_sorted]   # TODO: maybe copypaste the Array validation to reduce [] nesting
-        when :hash_opt ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] if object.key? k }
-        when :hash_req ; v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
+        #   validate object[k], v, path: [*path, :"##{k}"]
+        when :keys ; validate object.keys, v, path: [*path, :keys]
+        when :values ; validate object.values, v, path: [*path, :values]
+        when :keys_sorted ; validate object.keys.sort, v, path: [*path, :keys_sorted]   # TODO: maybe copypaste the Array validation to reduce [] nesting
+        when :hash_opt ; v.each{ |k, v| validate object.fetch(k), v, path: [*path, k] if object.key? k }
+        when :hash_req ; raise_with_path.call "expected required keys #{v.keys.sort} ∉ #{object.keys.sort}" unless (v.keys - object.keys).empty?
+                         v.each{ |k, v| validate object.fetch(k), v, path: [*path, k] }
         when :hash     ; raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash
-                         raise_with_path.call "expected implicit keys #{v.keys} != #{object.keys.sort}" unless v.keys.sort == object.keys.sort
-                         v.each{ |k, v| validate object.fetch(k), v, [*path, k] }
-        when :each_key ; object.keys.each_with_index{ |k, i| validate k, v, [*path, :"key##{i}"] }
-        when :each_value ; object.values.each_with_index{ |v_, i| validate v_, v, [*path, :"value##{i}"] }
-        when :method ; v.each{ |m, e| validate object.public_method(m).call, e, [*path, :"method##{m}"] }
+                         raise_with_path.call "expected implicit keys #{v.keys.sort} != #{object.keys.sort}" unless v.keys.sort == object.keys.sort
+                         v.each{ |k, v| validate object.fetch(k), v, path: [*path, k] }
+        when :each_key ; object.keys.each_with_index{ |k, i| validate k, v, path: [*path, :"key##{i}"] }
+        when :each_value ; object.values.each_with_index{ |v_, i| validate v_, v, path: [*path, :"value##{i}"] }
+        when :method ; v.each{ |m, e| validate object.public_method(m).call, e, path: [*path, :"method##{m}"] }
         when :each
           raise_with_path.call "expected iterable != #{object.class}" unless object.respond_to? :each_with_index
-          object.each_with_index{ |e, i| validate e, v, [*path, :"##{i}"] }
+          object.each_with_index{ |e, i| validate e, v, path: [*path, :"##{i}"] }
         # when :case
         #   raise_with_path.call "expected at least one of #{v.size} cases to match the #{object.inspect}" if v.map.with_index do |(k, v), i|
         #     next if begin
@@ -43,7 +44,7 @@ module Nakischema
         #     rescue Error => e
         #       e
         #     end
-        #     validate object, v, [*path, :"case##{i}"]
+        #     validate object, v, path: [*path, :"case##{i}"]
         #     true
         #   end.none?
         when :assertions
@@ -62,12 +63,12 @@ module Nakischema
       if schema.map(&:class) == [Array]
         raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
         raise_with_path.call "expected implicit size #{schema[0].size} != #{object.size} for #{object.inspect}" unless schema[0].size == object.size
-        object.zip(schema[0]).each_with_index{ |(o, v), i| validate o, v, [*path, :"##{i}"] }
+        object.zip(schema[0]).each_with_index{ |(o, v), i| validate o, v, path: [*path, :"##{i}"] }
       else
         results = schema.lazy.with_index.map do |v, i|
           # raise_with_path.call "unsupported nested Array" if v.is_a? Array
           begin
-            validate object, v, [*path, :"variant##{i}"]
+            validate object, v, path: [*path, :"variant##{i}"]
             nil
           rescue Error => e
             e
