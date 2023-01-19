@@ -24,8 +24,10 @@ module Nakischema
         when :keys ; validate object.keys, v, path: [*path, :keys]
         when :values ; validate object.values, v, path: [*path, :values]
         when :keys_sorted ; validate object.keys.sort, v, path: [*path, :keys_sorted]   # TODO: maybe copypaste the Array validation to reduce [] nesting
-        when :hash_opt ; v.each{ |k, v| validate object.fetch(k), v, path: [*path, k] if object.key? k }
-        when :hash_req ; raise_with_path.call "expected required keys #{v.keys.sort} ∉ #{object.keys.sort}" unless (v.keys - object.keys).empty?
+        when :hash_opt ; raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash
+                         v.each{ |k, v| validate object.fetch(k), v, path: [*path, k] if object.key? k }
+        when :hash_req ; raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash
+                         raise_with_path.call "expected required keys #{v.keys.sort} ∉ #{object.keys.sort}" unless (v.keys - object.keys).empty?
                          v.each{ |k, v| validate object.fetch(k), v, path: [*path, k] }
         when :hash     ; raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash
                          raise_with_path.call "expected implicit keys #{v.keys.sort} != #{object.keys.sort}" unless v.keys.sort == object.keys.sort
