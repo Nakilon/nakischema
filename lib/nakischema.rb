@@ -17,7 +17,8 @@ module Nakischema
       raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array unless (schema.keys & %i{ size }).empty?   # TODO: maybe allow Hash object?
       schema.each do |k, v|
         case k
-        when :size ; raise_with_path.call "expected explicit size #{v} != #{object.size}" unless v.include? object.size
+        when :size ; raise_with_path.call "expected Range != #{v.class}" unless v.is_a? Range
+                     raise_with_path.call "expected explicit size #{v} != #{object.size}" unless v.include? object.size
         # when Fixnum
         #   raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
         #   validate object[k], v, path: [*path, :"##{k}"]
@@ -30,7 +31,8 @@ module Nakischema
                          raise_with_path.call "expected required keys #{v.keys.sort} ∉ #{object.keys.sort}" unless (v.keys - object.keys).empty?
                          v.each{ |k, v| validate object.fetch(k), v, path: [*path, k] }
         when :hash     ; raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash
-                         raise_with_path.call "expected implicit keys #{v.keys.sort} != #{object.keys.sort}" unless v.keys.sort == object.keys.sort
+                         hash_wo_opt = object.keys.sort - schema.fetch(:hash_opt, {}).keys
+                         raise_with_path.call "expected implicit keys #{v.keys.sort} != #{hash_wo_opt}" unless v.keys.sort == hash_wo_opt
                          v.each{ |k, v| validate object.fetch(k), v, path: [*path, k] }
         when :each_key ; object.keys.each_with_index{ |k, i| validate k, v, path: [*path, :"key##{i}"] }
         when :each_value ; object.values.each_with_index{ |v_, i| validate v_, v, path: [*path, :"value##{i}"] }
@@ -138,4 +140,37 @@ module Nakischema
       raise_with_path.call "unsupported rule class #{schema.class}"
     end
   end
+
+  def self.fixture _
+    require "regexp-examples"
+    require "addressable"
+    case _
+    when Hash
+      case _.keys
+      when %i{ hash     } ;   _[:hash    ].map{ |k,v| [k,fixture(v)] }.shuffle.to_h
+      when %i{ hash_req } ; [*_[:hash_req].map{ |k,v| [k,fixture(v)] }, ["foo","bar"]].shuffle.to_h   # TODO: assert no collision
+      when %i{ size each } ; Array.new(fixture _[:size]){ fixture _[:each] }
+      else ; fail _.keys.inspect
+      end
+    when Array ; [Array] == _.map(&:class) ? _[0].map(&method(:fixture)) : fixture(_.sample)
+    when Regexp
+      t = _.random_example
+      tt = begin
+        URI t
+      rescue URI::InvalidURIError
+        URI Addressable::URI.escape t
+      end
+      tt.is_a?(URI::HTTP) ? tt.to_s : t
+    when Range ; rand _
+    when String ; _
+    when Class
+      case _.name
+      when "Integer" ; -rand(1000000)
+      when "Hash" ; {}
+      else ; fail "bad fixture node class name: #{_.name}"
+      end
+    else ; fail "bad fixture node class: #{_.class.inspect}"
+    end
+  end
+
 end

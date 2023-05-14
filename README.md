@@ -59,7 +59,7 @@ expected 18..100 != 15 (at [:"#1", :age]) (Nakischema::Error)
 
 * `:size` to specify allowed Array size range
 * `:hash_req` to specify required Hash items
-* `:hash_opt` to specify optional Hash items
+* `:hash_opt` to specify optional Hash items -- subtracted when validating `:hash` if present
 
 Your schema object can be recursive to validate objects that are recursive or just look like that:
 
