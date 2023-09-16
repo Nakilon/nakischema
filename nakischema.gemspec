@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name         = "nakischema"
-  spec.version      = "0.2.2"
+  spec.version      = "0.2.3"
   spec.summary      = "compact yet powerful arbitrary nested objects validator"
   spec.description  = "The most compact yet powerful arbitrary nested objects validator. Especially handy to validate JSONs."
 

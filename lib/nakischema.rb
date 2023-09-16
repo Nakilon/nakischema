@@ -11,7 +11,7 @@ module Nakischema
     # TODO: maybe deprecate the NilClass, TrueClass, FalseClass since they can be asserted via the next case branch
     when Class                                           ; raise_with_path.call "expected #{schema        } != #{object.class  }" unless schema === object
     when Regexp                                          ; raise_with_path.call "expected #{schema        } != #{object.inspect}" unless schema === object
-    when Range                                           ; raise_with_path.call "expected #{schema        } != #{object        }" unless schema.include? object
+    when Range                                           ; raise_with_path.call "expected #{schema        } != #{object.inspect}" unless schema.include? object
     when Hash
       raise_with_path.call "expected Hash != #{object.class}" unless object.is_a? Hash unless (schema.keys & %i{ keys each_key each_value }).empty?
       raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array unless (schema.keys & %i{ size }).empty?   # TODO: maybe allow Hash object?
@@ -166,6 +166,7 @@ module Nakischema
     when Class
       case _.name
       when "Integer" ; -rand(1000000)
+      when "String" ; SecureRandom.random_bytes(1000).force_encoding("utf-8").scrub
       when "Hash" ; {}
       else ; fail "bad fixture node class name: #{_.name}"
       end
