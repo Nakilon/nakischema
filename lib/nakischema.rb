@@ -7,7 +7,7 @@ module Nakischema
     end
     # TODO: maybe move '(at ...)' to the beginning
     case schema
-    when NilClass, TrueClass, FalseClass, String, Symbol ; raise_with_path.call "expected #{schema.inspect} != #{object.inspect}" unless schema == object
+    when NilClass, TrueClass, FalseClass, String, Symbol ; raise_with_path.call "expected #{schema.inspect} != #{object.inspect}" unless schema === object
     # TODO: maybe deprecate the NilClass, TrueClass, FalseClass since they can be asserted via the next case branch
     when Class                                           ; raise_with_path.call "expected #{schema        } != #{object.class  }" unless schema === object
     when Regexp                                          ; raise_with_path.call "expected #{schema        } != #{object.inspect}" unless schema === object
@@ -86,6 +86,13 @@ module Nakischema
     end
   end
 
+  def self.valid? object, schema
+    validate object, schema
+    true
+  rescue Error
+    false
+  end
+
   def self.validate_oga_xml object, schema, path = []
     raise_with_path = lambda do |msg, _path = path|
       raise Error.new "#{msg}#{" (at #{_path})" unless _path.empty?}"
@@ -141,28 +148,32 @@ module Nakischema
     end
   end
 
-  def self.fixture _
+  def self.fixture _, no_shuffle = false
     require "regexp-examples"
     require "addressable"
     case _
+    when NilClass ; nil
     when Hash
       case _.keys
-      when %i{ hash     } ;   _[:hash    ].map{ |k,v| [k,fixture(v)] }.shuffle.to_h
-      when %i{ hash_req } ; [*_[:hash_req].map{ |k,v| [k,fixture(v)] }, ["foo","bar"]].shuffle.to_h   # TODO: assert no collision
-      when %i{ size each } ; Array.new(fixture _[:size]){ fixture _[:each] }
+      when %i{ hash     } ;   _[:hash    ].map{ |k,v| [k,fixture(v,no_shuffle)] }                .then{ |_| no_shuffle ? _ : _.shuffle }.to_h
+      when %i{ hash_req } ; [*_[:hash_req].map{ |k,v| [k,fixture(v,no_shuffle)] }, ["foo","bar"]].then{ |_| no_shuffle ? _ : _.shuffle }.to_h   # TODO: assert no collision
+      when %i{ size each } ; Array.new(_[:size].max){ fixture _[:each], no_shuffle }
       else ; fail _.keys.inspect
       end
-    when Array ; [Array] == _.map(&:class) ? _[0].map(&method(:fixture)) : fixture(_.sample)
+    when Array ; [Array] == _.map(&:class) ? _[0].map{ |_| fixture _, no_shuffle } : fixture(_.sample, no_shuffle)
     when Regexp
-      t = _.random_example
-      tt = begin
-        URI t
+      begin
+        URI(t = _.random_example)
       rescue URI::InvalidURIError
-        URI Addressable::URI.escape t
-      end
-      tt.is_a?(URI::HTTP) ? tt.to_s : t
+        begin
+          URI Addressable::URI.escape t
+        rescue Addressable::URI::InvalidURIError
+          t
+        end
+      end.to_s
     when Range ; rand _
     when String ; _
+    when TrueClass ; true
     when Class
       case _.name
       when "Integer" ; -rand(1000000)
