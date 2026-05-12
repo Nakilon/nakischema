@@ -1,7 +1,7 @@
 module Nakischema
   Error = Class.new RuntimeError
 
-  def self.validate _object, _schema, message = nil
+  def self.validate_obj _object, _schema, path: [], message: nil
     function = lambda do |object, schema, path|
     raise_with_path = lambda do |msg, _path = path|
         # TODO: maybe move '(at ...)' to the beginning
@@ -42,7 +42,7 @@ module Nakischema
           when :method ; v.each{ |m, e| function.call object.public_method(m).call, e, path: [*path, :"method##{m}"] }
         when :each
           raise_with_path.call "expected iterable != #{object.class}" unless object.respond_to? :each_with_index
-          object.each_with_index{ |e, i| function.call e, v, path: [*path, :"##{i}"] }
+          object.each_with_index{ |e, i| validate e, v, path: [*path, :"##{i}"] }
         # when :case
         #   raise_with_path.call "expected at least one of #{v.size} cases to match the #{object.inspect}" if v.map.with_index do |(k, v), i|
         #     next if begin
@@ -70,7 +70,7 @@ module Nakischema
       if schema.map(&:class) == [Array]
         raise_with_path.call "expected Array != #{object.class}" unless object.is_a? Array
         raise_with_path.call "expected implicit size #{schema[0].size} != #{object.size} for #{object.inspect}" unless schema[0].size == object.size
-          object.zip(schema[0]).each_with_index{ |(o, v), i| function.call o, v, path: [*path, :"##{i}"] }
+          object.zip(schema[0]).each_with_index{ |(o, v), i| validate o, v, path: [*path, :"##{i}"] }
       else
         results = schema.lazy.with_index.map do |v, i|
           # raise_with_path.call "unsupported nested Array" if v.is_a? Array
@@ -88,7 +88,7 @@ module Nakischema
       raise_with_path.call "unsupported rule class #{schema.class}"
     end
     end
-    function.call _object, _schema, []
+    function.call _object, _schema, path
   end
 
   def self.valid? object, schema
@@ -153,6 +153,42 @@ module Nakischema
     end
   end
 
+  def self.validate_nokogiri object, schema, path: []
+    raise_with_path = lambda do |msg, _path = path|
+      raise Error.new "#{msg}#{" (at #{_path})" unless _path.empty?}"
+    end
+    case schema
+    when Hash
+      schema.each do |k, v|
+        case k
+        when :each ; raise_with_path.call "expected iterable != #{object.class}" unless object.respond_to? :each_with_index
+                     object.each_with_index{ |e, i| __method__.call e, v, path: [*path, :"##{i}"] }
+        when :exact ; children = object.xpath "./*"
+                      names = children.map(&:name).uniq
+                      raise_with_path.call "expected implicit children #{v.keys} != #{names}" unless v.keys == names
+                      v.each{ |k, v| validate_obj children.select{ |_| _.name == k }, v, path: [*path, k] }
+        when :attr_exact
+          names = object.attributes.keys
+          raise_with_path.call "expected implicit attributes #{v.keys} != #{names}" unless v.keys == names
+          v.each{ |k, v| validate_obj object[k], v, path: [*path, k] }
+        when :attr_req
+          v.each{ |k, v| validate_obj object[k], v, path: [*path, k] }
+        else
+          raise_with_path.call "unsupported rule #{k.inspect}"
+        end
+      end
+    when Array
+      if schema.map(&:class) == [Array]
+        raise_with_path.call "expected implicit size #{schema[0].size} != #{object.size} for #{object.inspect}" unless schema[0].size == object.size
+        object.zip(schema[0]).each_with_index{ |(o, v), i| validate o, v, path: [*path, :"##{i}"] }
+      else
+        fail
+      end
+    else
+      raise_with_path.call "unsupported rule class #{schema.class}"
+    end
+  end
+
   def self.fixture _, no_shuffle = false
     require "regexp-examples"
     require "addressable"
@@ -187,6 +223,15 @@ module Nakischema
       else ; fail "bad fixture node class name: #{_.name}"
       end
     else ; fail "bad fixture node class: #{_.class.inspect}"
+    end
+  end
+
+  def self.validate something, *args, **kwargs
+    case something.class.to_s
+    when "Nokogiri::XML::Element"
+      validate_nokogiri something, *args, **kwargs
+    else
+      validate_obj something, *args, **kwargs
     end
   end
 
