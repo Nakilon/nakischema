@@ -163,10 +163,11 @@ module Nakischema
         case k
         when :each ; raise_with_path.call "expected iterable != #{object.class}" unless object.respond_to? :each_with_index
                      object.each_with_index{ |e, i| __method__.call e, v, path: [*path, :"##{i}"] }
-        when :exact ; children = object.xpath "./*"
-                      names = children.map(&:name).uniq
-                      raise_with_path.call "expected implicit children #{v.keys} != #{names}" unless v.keys == names
-                      v.each{ |k, v| validate_obj children.select{ |_| _.name == k }, v, path: [*path, k] }
+        when :elements_exact
+          elements = object.elements
+          names = elements.map(&:name).uniq
+          raise_with_path.call "expected implicit children #{v.keys} != #{names}" unless v.keys == names
+          v.each{ |k, v| validate_obj elements.select{ |_| _.name == k }, v, path: [*path, k] }
         when :attr_exact
           names = object.attributes.keys
           raise_with_path.call "expected implicit attributes #{v.keys} != #{names}" unless v.keys == names
@@ -178,6 +179,7 @@ module Nakischema
         end
       end
     when Array
+      fail
       if schema.map(&:class) == [Array]
         raise_with_path.call "expected implicit size #{schema[0].size} != #{object.size} for #{object.inspect}" unless schema[0].size == object.size
         object.zip(schema[0]).each_with_index{ |(o, v), i| validate o, v, path: [*path, :"##{i}"] }
